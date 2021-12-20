@@ -108,9 +108,9 @@ python3 lda_wikipedia_output.py
 
 # Note
 
-このプログラムの実行にあたって、以下の注意があります。
-※1. 毎日新聞及び読売新聞のデータは非公開です。ご利用にあたっては、他のフリーのデータセットをご利用ください。
-※2. 著作権が失効していない書籍データも含まれています。詳しくは[「青空文庫収録ファイルの取り扱い規準」](https://www.aozora.gr.jp/guide/kijyunn.html)の元でご利用ください。
+このプログラムの実行にあたって、以下の注意があります。<br>
+※1. 毎日新聞及び読売新聞のデータは非公開です。ご利用にあたっては、他のフリーのデータセットをご利用ください。<br>
+※2. 著作権が失効していない書籍データも含まれています。詳しくは[「青空文庫収録ファイルの取り扱い規準」](https://www.aozora.gr.jp/guide/kijyunn.html)の元でご利用ください。<br>
 ※3. 環境によって正しく動作しないことが大いに考えられます。何か改善点やアイデアがございましたら大変恐縮ではございますが、何卒ご協力ください。
 
 # Author
@@ -125,13 +125,13 @@ python3 lda_wikipedia_output.py
 
 * Yuki Yamada（山田 悠稀：やまだ ゆうき）
 * Kyushu Institute of Technology（九州工業大学 情報工学部 知能情報工学科）
-
+<br>
 * Nobuaki Taniguchi（谷口 暢章：たにぐち のぶあき）
 * Kyushu Institute of Technology（九州工業大学 情報工学部 知能情報工学科）
-
+<br>
 * Tadataka Mizo（溝 忠剛：みぞ ただたか）
 * Kyushu Institute of Technology（九州工業大学 情報工学部 知能情報工学科）
-
+<br>
 
 
 最後まで見ていただきありがとうございました。
