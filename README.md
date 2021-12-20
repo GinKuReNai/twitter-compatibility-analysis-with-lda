@@ -126,9 +126,11 @@ python3 lda_wikipedia_output.py
 * Yuki Yamada（山田 悠稀：やまだ ゆうき）
 * Kyushu Institute of Technology（九州工業大学 情報工学部 知能情報工学科）
 <br>
+
 * Nobuaki Taniguchi（谷口 暢章：たにぐち のぶあき）
 * Kyushu Institute of Technology（九州工業大学 情報工学部 知能情報工学科）
 <br>
+
 * Tadataka Mizo（溝 忠剛：みぞ ただたか）
 * Kyushu Institute of Technology（九州工業大学 情報工学部 知能情報工学科）
 <br>
