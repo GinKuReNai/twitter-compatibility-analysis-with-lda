@@ -129,3 +129,8 @@ print_topics(best_lda_model, count_vectorizer, number_words)
 #モデルの保存
 filename = 'lda_web_model.sav'
 pickle.dump(best_lda_model, open(filename, 'wb'))
+
+# BoW, Tfidfをcsvに出力
+frame = {'CountVectorizer': count_vectorizer, 'Tfidf': tfidf_vectorizer}
+df = pd.DataFrame(frame)
+df.to_csv('learned_vector.csv')

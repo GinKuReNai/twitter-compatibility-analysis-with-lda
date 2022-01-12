@@ -45,12 +45,13 @@ for text_path in input_files:
     with open(text_path, 'r') as f:
         for line in f:
             # 記事（T2）の処理
+            line = line.rstrip() # 改行の処理
             if "Ｔ２" in line:
                 for word in stopword:
                     line=line.replace(word,'')
                 
                 line_normalized = normalized(line) # テキストを正規化
-                texts+=line_normailized
+                texts+=line_normalized
 
             # 記事の識別子（AD）の処理
             if "ＡＤ" in line:
@@ -59,5 +60,6 @@ for text_path in input_files:
                 count+=1
                 texts='' # テキストを初期化
             
-            
+            if re.search("【.{1,40}】", line):
+                break
            

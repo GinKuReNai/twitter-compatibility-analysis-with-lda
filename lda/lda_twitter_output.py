@@ -3,23 +3,25 @@ import glob
 import pickle   # モデルを保存
 import MeCab    # 形態素解析
 import os
+import re # 正規表現
 import urllib.request
 import unicodedata # 正規化用
 import neologdn # 正規化用
 import numpy as np
-import tweepy
+import tweepy # Twitter API
+#import emoji # 絵文字
 from sklearn.model_selection import GridSearchCV
 from sklearn.decomposition import LatentDirichletAllocation as LDA # LDA Modeling
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer # BoW / Tfidf
 
 
-tagger = MeCab.Tagger("-Ochasen")
+tagger = MeCab.Tagger("/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd")
 
 # Twitter API Key
-CONSUMER_KEY = ""
-CONSUMER_SECRET = ""
-ACCESS_TOKEN = ""
-ACCESS_SECRET = ""
+CONSUMER_KEY = "dC9Vb2ZslmPaYOmYczaMg7cgh"
+CONSUMER_SECRET = "BeMda6FQGmmbeIO3JOmyKRG6BWIGEs9vbNJCmgVx6YP1p72xx5"
+ACCESS_TOKEN = "1109729962276196354-NwMb7I23v9r08T2DQfsESMUNp4YDmc"
+ACCESS_SECRET = "kj4fxMutYtO5PUt3U4optH7yldvf0eqxbBGI6fz9TUFan"
 # Tweepyを適用
 auth = tweepy.OAuthHandler(CONSUMER_KEY,CONSUMER_SECRET)
 auth.set_access_token(ACCESS_TOKEN,ACCESS_SECRET)
@@ -40,6 +42,43 @@ def load_jp_stopwords(path="Japanese-revised.txt"):
         print('Downloading...')
         urllib.request.urlretrieve(url, path)
     return pd.read_csv(path, header=None)[0].tolist()
+# urlを削除する処理の関数
+'''
+def remove_url(text):
+    while re.search(r'(https?://[a-zA-Z0-9.-]*)', text):
+        match = re.search(r'https?://[a-zA-Z0-9.-]*)',text)
+        if match:
+            replace = match.group(1).split('://')
+            text = text.replace(match.group(1), replace[1])
+
+# 絵文字を削除する処理の関数
+def remove_emoji(src_str):
+    return ''.join(c for c in src_str if c not in emoji.UNICODE_EMOJI)
+'''
+
+# 前処理
+def pretreatment(text):
+    # 正規化
+    text_normalized = neologdn.normalize(text)
+    text_normalized = unicodedata.normalize('NFKC', text_normalized)
+    # 記号を削除
+    code_regex = re.compile('[\t\s!"#$%&\'\\\\()*+,-./:;；：<=>?@[\\]^_`{|}~○｢｣「」〔〕“”〈〉'\
+        '『』【】＆＊（）＄＃＠？！｀＋￥¥％♪…◇→←↓↑｡･ω･｡ﾟ´∀｀ΣДｘ⑥◎©︎♡★☆▽※ゞノ〆εσ＞＜┌┘]')
+    text_revised = code_regex.sub('', text_normalized)
+
+    # 数字と桁区切り文字を全て0に変換
+    text_revised = re.sub(r'(\d)([,.])(\d+)', r'\1\3', text_revised)
+    text_revised = re.sub(r'\d+', '0', text_revised)
+
+    # URLの削除
+    text_revised = re.sub('https?://[\da-zA-Z!\?/\+\-_~=;\.,\*&@#\$%\(\)\'\[\]]+', '', text_revised)
+    #text_revised = remove_url(text_normalized)
+    # 絵文字の削除
+    #text_revised = ''.join(c for c in text_revised if c not in emoji.UNICODE_EMOJI)
+    #text_revised = remove_emoji(text_revised)
+
+    return text_revised
+
 
 # 形態素解析の処理部分
 def preprocess_jp(series):
@@ -47,11 +86,10 @@ def preprocess_jp(series):
     stop_words = load_jp_stopwords("Japanese-revised.txt")
     def tokenizer_func(text):
         tokens = []
-        # 正規化
-        text_normalized = neologdn.normalize(text)
-        text_normalized = unicodedata.normalize('NFKC', text_normalized)
-
-        node = tagger.parseToNode(str(text))
+        # 前処理
+        text_revised = pretreatment(text)
+        # 形態素解析 textrevisedに注意
+        node = tagger.parseToNode(str(text_revised))
         while node:
             features = node.feature.split(',')
             surface = features[6]
@@ -81,9 +119,18 @@ tfidf_vectorizer = TfidfTransformer()   # Tfidf
 filename="lda_web_model.sav" # LDA-Model-saved filename
 
 loaded_model = pickle.load(open(filename, 'rb')) # モデルの読み込み
+tweet_texts = ''
 # Tweetを取得して形態素解析
 for tweet in tweepy.Cursor(api.user_timeline,screen_name = "hirox246",exclude_replies = True).items():
-  test_data_ss = pd.Series(tweet.text)
+    # RTとリプライは除外
+    if ('RT' in tweet.text) and ('@' in tweet.text):
+        pass
+    else:
+        tweet_texts += tweet.text
+        with open('tweet_data_pre.txt', 'a') as f:
+            f.write(tweet.text)
+test_data_ss = pd.Series(tweet_texts)
+
 processed_test_data_ss = preprocess_jp(test_data_ss)
 print(processed_test_data_ss[::])
 test_count_data = count_vectorizer.fit_transform(processed_test_data_ss) # BoWの生成
