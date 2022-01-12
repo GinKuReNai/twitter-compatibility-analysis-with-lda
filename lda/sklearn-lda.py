@@ -45,7 +45,11 @@ def preprocess_jp(series):
         text_normalized = neologdn.normalize(text)
         text_normalized = unicodedata.normalize('NFKC', text_normalized)
 
-        node = tagger.parseToNode(str(text))
+        # 数字と桁区切り文字を全て0に変換
+        text_normalized = re.sub(r'(\d)([,.])(\d+)', r'\1\3', text_normalized)
+        text_normalized = re.sub(r'\d+', '0', text_normalized)
+
+        node = tagger.parseToNode(str(text_normalized))
         while node:
             features = node.feature.split(',')
             surface = features[6]
