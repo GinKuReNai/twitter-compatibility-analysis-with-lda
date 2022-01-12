@@ -2,9 +2,23 @@
 import pandas as pd
 import re
 import glob
+import neologdn
+import unicodedata
 
 # 記事のテキスト
 texts = ''
+
+# テキストを正規化
+def normalized(sent):
+  # 正規化
+  sent_normalized = neologdn.normalize(sent)
+  sent_normalized = unicodedata.normalize('NFKC', sent_normalized)
+
+  # 数字と桁区切り文字を全て0に変換
+  sent_normalized = re.sub(r'(\d)([,.])(\d+)', r'\1\3', sent_normalized)
+  sent_normalized = re.sub(r'\d+', '0', sent_normalized)
+
+  return sent_normalized
 
 # --------------------------------------------------------
 # 探索パスのパターン
@@ -38,12 +52,12 @@ for text_path in input_files:
                 for word in stopword:
                     line=line.replace(word,'')
                 # 正規表現でパターン除去
-               
                 for avoid_pattern in avoid_patterns:
                     if re.search(avoid_pattern, line):
                         line = re.sub(avoid_pattern, '', line)
                 
-                texts+=line
+                line_normalized = normalized(line)
+                texts+=line_normalized
 
             # 記事の識別子（T1）の処理
             if "Ｔ１" in line:
