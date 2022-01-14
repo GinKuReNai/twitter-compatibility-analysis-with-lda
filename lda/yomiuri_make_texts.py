@@ -63,6 +63,6 @@ for text_path in input_files:
             if "Ｔ１" in line:
                 with open(output_path+'newspapers_{}.txt'.format(count),'w')as txtfile:
                     txtfile.write(texts)
-                    print(output_path+'newspapers_{}.txt'.format(count))
+                    #print(output_path+'newspapers_{}.txt'.format(count))
                 count+=1
                 texts='' # テキストを初期化
