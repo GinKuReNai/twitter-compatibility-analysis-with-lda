@@ -55,7 +55,7 @@ def remove_url(text):
 def remove_emoji(src_str):
     return ''.join(c for c in src_str if c not in emoji.UNICODE_EMOJI)
 '''
-
+'''
 # 前処理
 def pretreatment(text):
     # 正規化
@@ -78,7 +78,7 @@ def pretreatment(text):
     #text_revised = remove_emoji(text_revised)
 
     return text_revised
-
+'''
 
 # 形態素解析の処理部分
 def preprocess_jp(series):
@@ -87,9 +87,9 @@ def preprocess_jp(series):
     def tokenizer_func(text):
         tokens = []
         # 前処理
-        text_revised = pretreatment(text)
+        #text_revised = pretreatment(text)
         # 形態素解析 textrevisedに注意
-        node = tagger.parseToNode(str(text_revised))
+        node = tagger.parseToNode(str(text))
         while node:
             features = node.feature.split(',')
             surface = features[6]
@@ -121,7 +121,7 @@ filename="lda_web_model.sav" # LDA-Model-saved filename
 loaded_model = pickle.load(open(filename, 'rb')) # モデルの読み込み
 tweet_texts = ''
 # Tweetを取得して形態素解析
-for tweet in tweepy.Cursor(api.user_timeline,screen_name = "hirox246",exclude_replies = True).items():
+for tweet in tweepy.Cursor(api.user_timeline,screen_name = "npb",exclude_replies = True).items():
     # RTとリプライは除外
     if ('RT' in tweet.text) and ('@' in tweet.text):
         pass
