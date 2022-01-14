@@ -21,6 +21,7 @@ def normalized(sent):
   return sent_normalized
 
 # --------------------------------------------------------
+
 # 探索パスのパターン
 text_paths='/home/public/newspapers/mainichi/*/*.txt'
 correct_patterns = 'mai[0-9]+utf8.txt'
@@ -34,21 +35,31 @@ for infile in all_input_files:
   if re.search(correct_patterns, infile):
     input_files.append(infile)
 
+# 正規表現
+delete_patterns = ['<.{1,30}>','【.{1,30}】','＜.{1,30}＞']
 # --------------------------------------------------------
 
 # 除外したいワード
-stopword=['＼','Ｔ','２','／','▲','　']
+stopword=['＼','Ｔ','２','／','▲','◇','◆','　']
 count=0 # 記事数
 
 # プレーンなテキストに変換
 for text_path in input_files:
     with open(text_path, 'r') as f:
         for line in f:
+            if '【現在著作権交渉中の為、本文は表示できません】' in line:
+                continue
+            
             # 記事（T2）の処理
             line = line.rstrip() # 改行の処理
             if "Ｔ２" in line:
+                # ストップワードの除去
                 for word in stopword:
                     line=line.replace(word,'')
+                # その他不必要な文字列を削除
+                for pattern in delete_patterns:
+                    if re.search(pattern, line):
+                        line = re.sub(pattern, '', line)
                 
                 line_normalized = normalized(line) # テキストを正規化
                 texts+=line_normalized
@@ -60,6 +71,4 @@ for text_path in input_files:
                 count+=1
                 texts='' # テキストを初期化
             
-            if re.search("【.{1,40}】", line):
-                break
-           
+          
