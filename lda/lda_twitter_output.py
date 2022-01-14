@@ -18,10 +18,10 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer # 
 tagger = MeCab.Tagger("/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd")
 
 # Twitter API Key
-CONSUMER_KEY = "dC9Vb2ZslmPaYOmYczaMg7cgh"
-CONSUMER_SECRET = "BeMda6FQGmmbeIO3JOmyKRG6BWIGEs9vbNJCmgVx6YP1p72xx5"
-ACCESS_TOKEN = "1109729962276196354-NwMb7I23v9r08T2DQfsESMUNp4YDmc"
-ACCESS_SECRET = "kj4fxMutYtO5PUt3U4optH7yldvf0eqxbBGI6fz9TUFan"
+CONSUMER_KEY = ""
+CONSUMER_SECRET = ""
+ACCESS_TOKEN = ""
+ACCESS_SECRET = ""
 # Tweepyを適用
 auth = tweepy.OAuthHandler(CONSUMER_KEY,CONSUMER_SECRET)
 auth.set_access_token(ACCESS_TOKEN,ACCESS_SECRET)
