@@ -1,12 +1,16 @@
 # Scikit-learnを用いてLDAトピックモデリング
 import pandas as pd # CSV I/O
+import numpy as np
 import glob # パスを全探索
 import pickle # モデル保存
 import MeCab # 形態素解析
+import re # 正規表現
 import os
 import urllib.request
 import unicodedata # 正規化用
 import neologdn # 正規化用
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.decomposition import LatentDirichletAllocation as LDA
 
 # -------------------------------------------------------------------
 
@@ -58,18 +62,14 @@ def preprocess_jp(series):
                 node = node.next
                 continue
             noun_flag = (features[0] == '名詞')
+            number_flag = ('0' in surface) & (features[1] == '固有名詞')
             proper_noun_flag = (features[0] == '名詞') & (features[1] == '固有名詞')
-            #location_flag= (features[2] == '地域')
             pronoun_flag = (features[1] == '代名詞')
-            number_flag = (features[1] == '数') or (features[2] == '助数詞')
-            # 名詞 かつ 固有名詞のときは追加
-            if proper_noun_flag:
+            # 名詞 かつ 固有名詞のときは数字が入っていない場合に追加
+            if not number_flag and proper_noun_flag:
                 tokens.append(surface)
             # 名詞 かつ 代名詞でないときは追加
             elif noun_flag and not pronoun_flag:
-                tokens.append(surface)
-            # 名詞 かつ 数 or 助数詞ではないときは追加
-            elif noun_flag and not number_flag:
                 tokens.append(surface)
             node = node.next
         return " ".join(tokens)
@@ -87,12 +87,10 @@ processed_news_ss = preprocess_jp(news_ss)
 #訓練データの作成
 traindata=[]
 stringdata=''
-for i in processed_news_ss:
-    stringdata=i
+for stringdata in processed_news_ss:
     traindata.append(stringdata)
 
 #BoWの作成(現在は省略)
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 #vect=CountVectorizer(max_features=10000,max_df=.50).fit(processed_news_ss)
 #data=vect.transform(processed_news_ss)
 
@@ -101,8 +99,6 @@ tfidf_vec = TfidfVectorizer(lowercase=True, max_df = .50).fit(traindata)
 X_train = tfidf_vec.transform(traindata)
 
 # LDAモデルの作成
-from sklearn.decomposition import LatentDirichletAllocation as LDA
-
 topic_num=10
 lda = LDA(n_components=topic_num,max_iter=25,               # Max learning iterations
               learning_method='batch',  
