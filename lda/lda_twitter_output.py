@@ -1,4 +1,5 @@
 import pandas as pd
+import math
 import glob
 import pickle   # モデルを保存
 import MeCab    # 形態素解析
@@ -9,19 +10,21 @@ import unicodedata # 正規化用
 import neologdn # 正規化用
 import numpy as np
 import tweepy # Twitter API
-#import emoji # 絵文字
-from sklearn.model_selection import GridSearchCV
+import demoji # 絵文字
 from sklearn.decomposition import LatentDirichletAllocation as LDA # LDA Modeling
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer # BoW / Tfidf
+import matplotlib.pyplot as plt
 
+# ---------------------------------------------------------------
 
 tagger = MeCab.Tagger("/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd")
 
 # Twitter API Key
-CONSUMER_KEY = ""
-CONSUMER_SECRET = ""
-ACCESS_TOKEN = ""
-ACCESS_SECRET = ""
+CONSUMER_KEY = "eip6ryVGm4LTs6PEaY0mLpiXg"
+CONSUMER_SECRET = "d6TEZ0nWWyapBKtECyNAbo5NLGp4CS0vQJrrHuXV5J56EAMJp3"
+ACCESS_TOKEN = "1109729962276196354-ond0wSijFgiuMVtxCnZRcyW0prQsLo"
+ACCESS_SECRET = "LMUobsWM23ifx25bweXVD5gN82Ylw8jyOGsMdt9FB8IoJ"
+
 # Tweepyを適用
 auth = tweepy.OAuthHandler(CONSUMER_KEY,CONSUMER_SECRET)
 auth.set_access_token(ACCESS_TOKEN,ACCESS_SECRET)
@@ -29,7 +32,6 @@ auth.set_access_token(ACCESS_TOKEN,ACCESS_SECRET)
 api = tweepy.API(auth)
 
 tweet_data = [] # 読み込んだツイートを格納
-
 
 # ---------------------------------------------------------------
 
@@ -42,43 +44,30 @@ def load_jp_stopwords(path="Japanese-revised.txt"):
         print('Downloading...')
         urllib.request.urlretrieve(url, path)
     return pd.read_csv(path, header=None)[0].tolist()
-# urlを削除する処理の関数
-'''
-def remove_url(text):
-    while re.search(r'(https?://[a-zA-Z0-9.-]*)', text):
-        match = re.search(r'https?://[a-zA-Z0-9.-]*)',text)
-        if match:
-            replace = match.group(1).split('://')
-            text = text.replace(match.group(1), replace[1])
 
-# 絵文字を削除する処理の関数
-def remove_emoji(src_str):
-    return ''.join(c for c in src_str if c not in emoji.UNICODE_EMOJI)
-'''
-'''
-# 前処理
-def pretreatment(text):
+# 正規化その他処理
+def normalization(text):
+    avoid_patterns = ['【.{1,10}】']
     # 正規化
     text_normalized = neologdn.normalize(text)
     text_normalized = unicodedata.normalize('NFKC', text_normalized)
-    # 記号を削除
-    code_regex = re.compile('[\t\s!"#$%&\'\\\\()*+,-./:;；：<=>?@[\\]^_`{|}~○｢｣「」〔〕“”〈〉'\
-        '『』【】＆＊（）＄＃＠？！｀＋￥¥％♪…◇→←↓↑｡･ω･｡ﾟ´∀｀ΣДｘ⑥◎©︎♡★☆▽※ゞノ〆εσ＞＜┌┘]')
-    text_revised = code_regex.sub('', text_normalized)
 
     # 数字と桁区切り文字を全て0に変換
-    text_revised = re.sub(r'(\d)([,.])(\d+)', r'\1\3', text_revised)
-    text_revised = re.sub(r'\d+', '0', text_revised)
+    text_normalized = re.sub(r'(\d)([,.])(\d+)', r'\1\3', text_normalized)
+    text_normalized = re.sub(r'\d+', '0', text_normalized)
 
-    # URLの削除
-    text_revised = re.sub('https?://[\da-zA-Z!\?/\+\-_~=;\.,\*&@#\$%\(\)\'\[\]]+', '', text_revised)
-    #text_revised = remove_url(text_normalized)
-    # 絵文字の削除
-    #text_revised = ''.join(c for c in text_revised if c not in emoji.UNICODE_EMOJI)
-    #text_revised = remove_emoji(text_revised)
+    # URLを削除
+    text_normalized = re.sub(r'https?://[\w/:%#\$&\?\(\)~\.=\+\-]+','', text_normalized)
 
-    return text_revised
-'''
+    # 絵文字を削除
+    text_normalized = demoji.replace(string=text_normalized, repl='')
+
+    # 不必要なパターンを削除
+    for avoid_pattern in avoid_patterns:
+        if re.search(avoid_pattern, text_normalized):
+            text_normalized = re.sub(avoid_pattern, '', text_normalized)
+
+    return text_normalized
 
 # 形態素解析の処理部分
 def preprocess_jp(series):
@@ -86,10 +75,7 @@ def preprocess_jp(series):
     stop_words = load_jp_stopwords("Japanese-revised.txt")
     def tokenizer_func(text):
         tokens = []
-        # 前処理
-        #text_revised = pretreatment(text)
-        # 形態素解析 textrevisedに注意
-        node = tagger.parseToNode(str(text))
+        node = tagger.parseToNode(text)
         while node:
             features = node.feature.split(',')
             surface = features[6]
@@ -97,10 +83,10 @@ def preprocess_jp(series):
                 node = node.next
                 continue
             noun_flag = (features[0] == '名詞')
+            number_flag = (re.match(r'\d+', surface)) and (features[1] == '固有名詞')
             proper_noun_flag = (features[0] == '名詞') & (features[1] == '固有名詞')
-            #location_flag= (features[2] == '地域')
             pronoun_flag= (features[1] == '代名詞')
-            if proper_noun_flag:
+            if proper_noun_flag and not number_flag:
                 tokens.append(surface)
             elif noun_flag and not pronoun_flag:
                 tokens.append(surface)
@@ -111,39 +97,83 @@ def preprocess_jp(series):
     series = series.map(lambda x: x.lower())
     return series
 
-# -----------------------------------------------------------------
+#2人のユーザーの興味のcos類似度を計算
+def similality(lda1, lda2):
+    return np.dot(lda1, lda2) / (np.linalg.norm(lda1) * np.linalg.norm(lda2))
 
-count_vectorizer = CountVectorizer()    # BoW
-tfidf_vectorizer = TfidfTransformer()   # Tfidf
+# 円グラフの表示
+def roundgraph_save(ndarray, accountname):
+  label = [str(n) for n in range(10)]
+  fig=plt.figure()
+  plt.title('@'+accountname)
+  plt.pie(ndarray, labels=label, counterclock=False, startangle=90, autopct="%.1f%%")
+  fig.savefig("pictures/" + accountname + "_lda_round.png")
 
-filename="lda_web_model.sav" # LDA-Model-saved filename
+# 特定のユーザーのジャンル確率を推定
+def analyze(accountname):
+    tweet_texts=[]
 
-loaded_model = pickle.load(open(filename, 'rb')) # モデルの読み込み
-tweet_texts = ''
-# Tweetを取得して形態素解析
-for tweet in tweepy.Cursor(api.user_timeline,screen_name = "npb",exclude_replies = True).items():
-    # RTとリプライは除外
-    if ('RT' in tweet.text) and ('@' in tweet.text):
-        pass
-    else:
-        tweet_texts += tweet.text
-        with open('tweet_data_pre.txt', 'a') as f:
-            f.write(tweet.text)
-test_data_ss = pd.Series(tweet_texts)
+    for tweet in tweepy.Cursor(api.user_timeline,screen_name = accountname,exclude_replies = True).items():
+        # RTとリプライは除外
+        if ('RT' in tweet.text) and ('@' in tweet.text):
+            pass 
+        else:
+            tweet_texts.append(normalization(str(tweet.text.rstrip())))
+   # 前処理
+    tweet_ss = preprocess_jp(pd.Series(tweet_texts))
 
-processed_test_data_ss = preprocess_jp(test_data_ss)
-print(processed_test_data_ss[::])
-test_count_data = count_vectorizer.fit_transform(processed_test_data_ss) # BoWの生成
-test_tfidf_data = tfidf_vectorizer.fit_transform(test_count_data)   # Tfidfの生成
-doc_topic_mat = loaded_model.fit_transform(test_tfidf_data) # LDA Modelの生成
-dominant_topic = np.argmax(doc_topic_mat, axis=1) # 最大値を最も適するトピックとして処理
+    tweets=[]
+    for stringdata in tweet_ss:
+        tweets.append(stringdata)
+        # テキストに文字列を保存
+        with open('tweet_data_' + accountname + '.txt', 'a') as f:
+            f.write(stringdata)
 
-test_data_df = pd.DataFrame(test_data_ss, columns=['text'])
-test_data_df['topic_id'] = dominant_topic
+    X=vectorizer.transform(tweets)
+    lda_model=loaded_model.transform(X)
 
-# 各トピックごとの分布割合を出力
-for i in test_data_df.index:
-    print(dominant_topic[i])
+    # 各トピックごとの分布割合を出力
+    sum_lda = []
+    for i,lda in enumerate(lda_model):
+       if i == 0:
+           sum_lda = lda
+       else:
+           sum_lda += lda
+           sum_lda = sum_lda / np.linalg.norm(sum_lda)
+    print('#'*10)
+    topicid=[i for i, x in enumerate(lda) if x == max(lda)]
+    print(lda," >>> topic",topicid)
+    print("")
 
-# 最適トピック番号を出力
-print(dominant_topic)
+    # numpyの配列に変換
+    average_ndarray = np.array(lda)
+    # グラフを表示
+    roundgraph_save(average_ndarray, accountname)
+    #確率分布の保存
+    ldaname= 'models/' + accountname + '_distribution.sav'
+    pickle.dump(average_ndarray, open(ldaname, 'wb'))
+
+    return average_ndarray
+
+# ---------------------------------------------------------------
+
+#LDAのロード
+ldaname="models/lda.sav"
+loaded_model = pickle.load(open(ldaname, 'rb'))
+
+#tfidfのロード
+Tfidfname= 'models/Tfidf.sav'
+vectorizer=None
+with open(Tfidfname, 'rb') as f:
+    vectorizer=pickle.load(f)
+
+#ジャンル確率の推定と円グラフの保存
+accountname = ['hirox246', 'takapon_jp']
+lda1=analyze(accountname[0])
+lda2=analyze(accountname[1])
+
+#類似度を出力
+print("#"*10)
+print('@'+accountname[0]+'さんと@'+accountname[1]+'さんの類似度は{}%です！！'.format(similality(lda1, lda2) * 100))
+print("#"*10)
+print('\n')
