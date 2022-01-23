@@ -62,11 +62,14 @@ def preprocess_jp(series):
                 node = node.next
                 continue
             noun_flag = (features[0] == '名詞')
-            number_flag = ('0' in surface) & (features[1] == '固有名詞')
+            number_flag = ((re.match('[0-9]+', surface)) or ('0' in surface)) and (features[1] == '固有名詞')
             proper_noun_flag = (features[0] == '名詞') & (features[1] == '固有名詞')
             pronoun_flag = (features[1] == '代名詞')
             # 名詞 かつ 固有名詞のときは数字が入っていない場合に追加
-            if not number_flag and proper_noun_flag:
+            if number_flag:
+                node = node.next
+                continue
+            elif proper_noun_flag:
                 tokens.append(surface)
             # 名詞 かつ 代名詞でないときは追加
             elif noun_flag and not pronoun_flag:
@@ -95,7 +98,7 @@ for stringdata in processed_news_ss:
 #data=vect.transform(processed_news_ss)
 
 #Tfidfの作成
-tfidf_vec = TfidfVectorizer(lowercase=True, max_df = .50).fit(traindata)
+tfidf_vec = TfidfVectorizer(lowercase=True, max_df = 0.5, min_df=5).fit(traindata)
 X_train = tfidf_vec.transform(traindata)
 
 # LDAモデルの作成
@@ -108,7 +111,7 @@ lda.fit(X_train)
 
 # 各トピックの上位100語を出力
 sorting = np.argsort(lda.components_, axis=1)[:,::-1]
-top_n=100
+top_n=1000
 for i in range(topic_num):
     print("topic{}:".format(i))
     for j in range(top_n):
