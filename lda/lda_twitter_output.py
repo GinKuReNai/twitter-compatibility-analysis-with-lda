@@ -4,6 +4,7 @@ import glob
 import pickle   # モデルを保存
 import MeCab    # 形態素解析
 import os
+import sys  # 引数の受け取り
 import re # 正規表現
 import urllib.request
 import unicodedata # 正規化用
@@ -14,11 +15,17 @@ import demoji # 絵文字
 from sklearn.decomposition import LatentDirichletAllocation as LDA # LDA Modeling
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer # BoW / Tfidf
 import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
 
 # ---------------------------------------------------------------
 
 tagger = MeCab.Tagger("/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd")
 
+# Twitter API Key
+CONSUMER_KEY = "eip6ryVGm4LTs6PEaY0mLpiXg"
+CONSUMER_SECRET = "d6TEZ0nWWyapBKtECyNAbo5NLGp4CS0vQJrrHuXV5J56EAMJp3"
+ACCESS_TOKEN = "1109729962276196354-ond0wSijFgiuMVtxCnZRcyW0prQsLo"
+ACCESS_SECRET = "LMUobsWM23ifx25bweXVD5gN82Ylw8jyOGsMdt9FB8IoJ"
 
 # Tweepyを適用
 auth = tweepy.OAuthHandler(CONSUMER_KEY,CONSUMER_SECRET)
@@ -27,6 +34,7 @@ auth.set_access_token(ACCESS_TOKEN,ACCESS_SECRET)
 api = tweepy.API(auth)
 
 tweet_data = [] # 読み込んだツイートを格納
+all_noun_data = dict()
 
 # ---------------------------------------------------------------
 
@@ -78,12 +86,19 @@ def preprocess_jp(series):
                 node = node.next
                 continue
             noun_flag = (features[0] == '名詞')
-            number_flag = (re.match(r'\d+', surface)) and (features[1] == '固有名詞')
+            number_flag = (re.match('[0-9]+', surface) or ('0' in surface)) and (features[1] == '固有名詞')
             proper_noun_flag = (features[0] == '名詞') & (features[1] == '固有名詞')
             pronoun_flag= (features[1] == '代名詞')
+            if number_flag:
+                node = node.next
+                continue
             if proper_noun_flag and not number_flag:
+                # 頻度をカウント
+                all_noun_data[surface] = all_noun_data.get(surface, 0)+1
                 tokens.append(surface)
             elif noun_flag and not pronoun_flag:
+                # 頻度をカウント
+                all_noun_data[surface] = all_noun_data.get(surface, 0)+1
                 tokens.append(surface)
             node = node.next
         return " ".join(tokens)
@@ -98,11 +113,32 @@ def similality(lda1, lda2):
 
 # 円グラフの表示
 def roundgraph_save(ndarray, accountname):
-  label = [str(n) for n in range(10)]
-  fig=plt.figure()
-  plt.title('@'+accountname)
-  plt.pie(ndarray, labels=label, counterclock=False, startangle=90, autopct="%.1f%%")
-  fig.savefig("pictures/" + accountname + "_lda_round.png")
+    # ファイル名
+    filename = 'pictures/' + accountname + '_lda_round_test.png'
+
+    label = [str(n) for n in range(10)]
+    fig=plt.figure()
+    plt.title('@'+accountname)
+    plt.pie(ndarray, labels=label, counterclock=False, startangle=90, autopct="%.1f%%")
+    fig.savefig(filename, dpi=500)
+
+# 棒グラフの表示
+def bargraph_save(tupple, accountname):
+    # ファイル名
+    filename = 'pictures/' + accountname + '_lda_bargraph_test.png'
+
+    fp = FontProperties(fname='msgothic.ttc', size=5)
+    label = [element[0] for element in tupple]
+    value = [element[1] for element in tupple]
+    left = [n for n in range(len(label))]
+    fig=plt.figure()
+    plt.bar(left, value, align="center", color="orange")
+    plt.xticks(left, label, rotation=90, fontproperties=fp)
+    plt.title('@'+accountname, fontproperties=fp)
+    plt.xlabel("単語", fontproperties=fp)
+    plt.ylabel("出現頻度", fontproperties=fp)
+    plt.grid(True)
+    fig.savefig(filename, dpi=500)
 
 # 特定のユーザーのジャンル確率を推定
 def analyze(accountname):
@@ -121,7 +157,7 @@ def analyze(accountname):
     for stringdata in tweet_ss:
         tweets.append(stringdata)
         # テキストに文字列を保存
-        with open('tweet_data_' + accountname + '.txt', 'a') as f:
+        with open('models/tweet_data_' + accountname + '.txt', 'a') as f:
             f.write(stringdata)
 
     X=vectorizer.transform(tweets)
@@ -136,14 +172,19 @@ def analyze(accountname):
            sum_lda += lda
            sum_lda = sum_lda / np.linalg.norm(sum_lda)
     print('#'*10)
-    topicid=[i for i, x in enumerate(lda) if x == max(lda)]
-    print(lda," >>> topic",topicid)
+    topicid=[i for i, x in enumerate(sum_lda) if x == max(sum_lda)]
+    print(sum_lda," >>> topic",topicid)
     print("")
 
     # numpyの配列に変換
-    average_ndarray = np.array(lda)
-    # グラフを表示
+    average_ndarray = np.array(sum_lda)
+    # 円グラフを表示
     roundgraph_save(average_ndarray, accountname)
+    # 棒グラフを表示
+    sorted_all_noun_data = sorted(all_noun_data.items(), key=lambda x:x[1], reverse=True)
+    with open('models/words_count_' + accountname + '.txt', 'w') as f:
+        f.write(str(sorted_all_noun_data))
+    bargraph_save(sorted_all_noun_data[:51], accountname)
     #確率分布の保存
     ldaname= 'models/' + accountname + '_distribution.sav'
     pickle.dump(average_ndarray, open(ldaname, 'wb'))
@@ -163,12 +204,16 @@ with open(Tfidfname, 'rb') as f:
     vectorizer=pickle.load(f)
 
 #ジャンル確率の推定と円グラフの保存
-accountname = ['hirox246', 'takapon_jp']
-lda1=analyze(accountname[0])
-lda2=analyze(accountname[1])
+accountname = sys.argv # 引数からアカウント名を取得
+if len(accountname) != 3:
+    print('アカウント名は2つ入力してください!!')
+else:
+    lda1=analyze(accountname[1])
+    all_noun_data = dict()
+    lda2=analyze(accountname[2])
 
 #類似度を出力
 print("#"*10)
-print('@'+accountname[0]+'さんと@'+accountname[1]+'さんの類似度は{}%です！！'.format(similality(lda1, lda2) * 100))
+print('@'+accountname[1]+'さんと@'+accountname[2]+'さんの類似度は{}%です！！'.format(similality(lda1, lda2) * 100))
 print("#"*10)
 print('\n')
