@@ -21,11 +21,6 @@ from matplotlib.font_manager import FontProperties
 
 tagger = MeCab.Tagger("/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd")
 
-# Twitter API Key
-CONSUMER_KEY = "eip6ryVGm4LTs6PEaY0mLpiXg"
-CONSUMER_SECRET = "d6TEZ0nWWyapBKtECyNAbo5NLGp4CS0vQJrrHuXV5J56EAMJp3"
-ACCESS_TOKEN = "1109729962276196354-ond0wSijFgiuMVtxCnZRcyW0prQsLo"
-ACCESS_SECRET = "LMUobsWM23ifx25bweXVD5gN82Ylw8jyOGsMdt9FB8IoJ"
 
 # Tweepyを適用
 auth = tweepy.OAuthHandler(CONSUMER_KEY,CONSUMER_SECRET)
